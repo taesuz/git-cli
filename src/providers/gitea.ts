@@ -96,9 +96,9 @@ export class GiteaProvider implements GitProvider {
       try {
         const createRes = await this.client.post('/user/repos', {
           name: repoName,
-          private: false,
+          private: true, // 기본 Private 설정
         });
-        console.log(`[Gitea API] 사용자 개인 저장소 생성 완료: ${fullPath}`);
+        console.log(`[Gitea API] 사용자 개인 Private 저장소 생성 완료: ${fullPath}`);
         return {
           cloneUrl,
           authenticatedCloneUrl,
@@ -120,7 +120,7 @@ export class GiteaProvider implements GitProvider {
           try {
             await this.client.post('/orgs', {
               username: targetOwner,
-              visibility: 'public',
+              visibility: 'private',
             });
             console.log(`[Gitea API] 조직 생성 완료: ${targetOwner}`);
           } catch (orgErr: any) {
@@ -132,9 +132,9 @@ export class GiteaProvider implements GitProvider {
       try {
         const createRes = await this.client.post(`/orgs/${targetOwner}/repos`, {
           name: repoName,
-          private: false,
+          private: true, // 기본 Private 설정
         });
-        console.log(`[Gitea API] 조직 저장소 생성 완료: ${fullPath}`);
+        console.log(`[Gitea API] 조직 Private 저장소 생성 완료: ${fullPath}`);
         return {
           cloneUrl,
           authenticatedCloneUrl,
@@ -181,7 +181,7 @@ export class GiteaProvider implements GitProvider {
         repo_name: repoName,
         repo_owner: targetOwner,
         service: 'git',
-        private: false,
+        private: true, // 기본 Private 설정
       });
       console.log(`[Gitea API] Pull Mirror 등록 성공: ${fullPath}`);
     } catch (err: any) {
@@ -199,5 +199,4 @@ export class GiteaProvider implements GitProvider {
   }
 }
 
-// Registry 등록
 registerProvider('gitea', GiteaProvider);

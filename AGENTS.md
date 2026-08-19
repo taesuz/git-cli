@@ -89,7 +89,7 @@ git-cli/
 # 의존성 설치
 npm install
 
-# TypeScript 빌드 (CJS, ESM 번들링 및 실행 권한 부여)
+# TypeScript 빌드 (컴파일, 실행권한 지정 및 npm link 자동 실행)
 npm run build
 
 # 개발 모드 실행

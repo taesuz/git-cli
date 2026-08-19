@@ -143,7 +143,7 @@ export class GitlabProvider implements GitProvider {
               const createGroupPayload: any = {
                 name: targetOwner,
                 path: targetOwner,
-                visibility: 'public',
+                visibility: 'private', // 기본 Private 설정
               };
               if (parentGroupId) {
                 createGroupPayload.parent_id = parentGroupId;
@@ -157,7 +157,7 @@ export class GitlabProvider implements GitProvider {
                 const topCreateRes = await this.client.post('/groups', {
                   name: targetOwner,
                   path: targetOwner,
-                  visibility: 'public',
+                  visibility: 'private', // 기본 Private 설정
                 });
                 namespaceId = topCreateRes.data.id;
                 chosenFullPath = `${targetOwner}/${repoName}`;
@@ -183,9 +183,9 @@ export class GitlabProvider implements GitProvider {
         name: repoName,
         path: repoName,
         namespace_id: namespaceId,
-        visibility: 'public',
+        visibility: 'private', // 기본 Private 설정
       });
-      console.log(`[GitLab API] 프로젝트 생성 완료: ${chosenFullPath}`);
+      console.log(`[GitLab API] Private 프로젝트 생성 완료: ${chosenFullPath}`);
       return {
         cloneUrl,
         authenticatedCloneUrl,
@@ -268,5 +268,4 @@ export class GitlabProvider implements GitProvider {
   }
 }
 
-// Registry 등록
 registerProvider('gitlab', GitlabProvider);

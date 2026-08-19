@@ -100,9 +100,9 @@ export class GithubProvider implements GitProvider {
       try {
         const createRes = await this.client.post('/user/repos', {
           name: repoName,
-          private: false,
+          private: true, // 기본 Private 설정
         });
-        console.log(`[GitHub API] 메인 사용자 저장소 생성 완료: ${fullPath}`);
+        console.log(`[GitHub API] 메인 사용자 Private 저장소 생성 완료: ${fullPath}`);
         return {
           cloneUrl,
           authenticatedCloneUrl,
@@ -120,9 +120,9 @@ export class GithubProvider implements GitProvider {
       try {
         const createRes = await this.client.post(`/orgs/${targetOwner}/repos`, {
           name: repoName,
-          private: false,
+          private: true, // 기본 Private 설정
         });
-        console.log(`[GitHub API] 조직 저장소 생성 완료: ${fullPath}`);
+        console.log(`[GitHub API] 조직 Private 저장소 생성 완료: ${fullPath}`);
         return {
           cloneUrl,
           authenticatedCloneUrl,
@@ -161,5 +161,4 @@ export class GithubProvider implements GitProvider {
   }
 }
 
-// Registry 등록
 registerProvider('github', GithubProvider);

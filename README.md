@@ -34,11 +34,18 @@ GitHub, GitLab, Gitea 간의 저장소 생성, 조직(Organization) 및 GitLab �
 
 Node.js (v18 이상) 환경이 필요합니다.
 
+### 로컬 개발 시 시스템 어디서나 실행되도록 등록하는 방법
+
 ```bash
-# 로컬 개발 및 빌드 시
+# 1. 의존성 설치 및 빌드
 npm install
 npm run build
+
+# 2. 로컬 글로벌 링크 등록 (어느 폴더에서나 git-cli 명령어로 사용 가능)
+npm link
 ```
+
+npm registry에 패키지를 배포한 후에는 `npx git-cli`로 누구나 등록 없이 즉시 실행하실 수 있습니다.
 
 ---
 
