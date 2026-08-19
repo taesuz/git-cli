@@ -30,6 +30,24 @@ export interface SetupMirrorOptions {
   repoExists: boolean;
 }
 
+export interface MirrorRepoStatus {
+  providerName: string;
+  fullPath: string;
+  cloneUrl: string;
+  exists: boolean;
+  isEmpty?: boolean;
+}
+
+export interface RepoInfo {
+  name: string;
+  fullPath: string;
+  cloneUrl: string;
+  isEmpty: boolean;
+  defaultBranch?: string;
+  size?: number;
+  mirrors?: MirrorRepoStatus[];
+}
+
 export interface GitProviderCapabilities {
   supportsPushMirror: boolean;
   supportsPullMirror: boolean;
@@ -44,4 +62,7 @@ export interface GitProvider {
   ensureRepo(targetPath: string): Promise<EnsureRepoResult>;
   addPushMirror?(targetPath: string, mirrorCloneUrl: string): Promise<void>;
   addPullMirror?(targetPath: string, mainCloneUrl: string): Promise<void>;
+  listRepositories?(): Promise<RepoInfo[]>;
+  checkRepositoryEmpty?(targetPath: string): Promise<RepoInfo>;
+  deleteRepo?(targetPath: string): Promise<void>;
 }

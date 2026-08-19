@@ -266,6 +266,96 @@ export class GitlabProvider implements GitProvider {
       console.warn(`[GitLab API] Pull Mirror 등록 경고: ${err.response?.data?.message || err.message}`);
     }
   }
+
+  private async isProjectEmpty(proj: any, encodedPath: string): Promise<boolean> {
+    if (typeof proj.empty_repo === 'boolean') {
+      return proj.empty_repo;
+    }
+    try {
+      const branchesRes = await this.client.get(`/projects/${encodedPath}/repository/branches`);
+      return Array.isArray(branchesRes.data) && branchesRes.data.length === 0;
+    } catch (err: any) {
+      if (err.response?.status === 404) {
+        return true;
+      }
+      return false;
+    }
+  }
+
+  async listRepositories(): Promise<import('../types.js').RepoInfo[]> {
+    const user = await this.getCurrentUser();
+    const isGroup = !!(this.group && this.group.trim() !== '');
+    const endpoint = isGroup
+      ? `/groups/${encodeURIComponent(this.group!.trim())}/projects?include_subgroups=true&per_page=100`
+      : `/projects?membership=true&per_page=100`;
+
+    try {
+      const res = await this.client.get(endpoint);
+      const repoInfos: import('../types.js').RepoInfo[] = [];
+
+      for (const proj of res.data) {
+        const encoded = encodeURIComponent(proj.path_with_namespace);
+        const isEmpty = await this.isProjectEmpty(proj, encoded);
+        repoInfos.push({
+          name: proj.name,
+          fullPath: proj.path_with_namespace,
+          cloneUrl: proj.web_url,
+          isEmpty,
+          defaultBranch: proj.default_branch,
+        });
+      }
+
+      return repoInfos;
+    } catch (err: any) {
+      throw new Error(`[GitLab API] 프로젝트 목록 조회 실패: ${err.response?.data?.message || err.message}`);
+    }
+  }
+
+  async checkRepositoryEmpty(targetPath: string): Promise<import('../types.js').RepoInfo> {
+    const user = await this.getCurrentUser();
+    const { targetOwner, repoName } = this.resolveOwnerAndRepo(targetPath, user.username);
+    const possiblePaths = this.getPossiblePaths(targetOwner, repoName, user.username);
+
+    for (const fullPath of possiblePaths) {
+      try {
+        const encoded = encodeURIComponent(fullPath);
+        const res = await this.client.get(`/projects/${encoded}`);
+        if (res.status === 200) {
+          const proj = res.data;
+          const isEmpty = await this.isProjectEmpty(proj, encoded);
+          return {
+            name: proj.name,
+            fullPath: proj.path_with_namespace,
+            cloneUrl: proj.web_url,
+            isEmpty,
+            defaultBranch: proj.default_branch,
+          };
+        }
+      } catch {}
+    }
+
+    throw new Error(`[GitLab API] 프로젝트(${targetPath})를 찾을 수 없습니다.`);
+  }
+
+  async deleteRepo(targetPath: string): Promise<void> {
+    const user = await this.getCurrentUser();
+    const { targetOwner, repoName } = this.resolveOwnerAndRepo(targetPath, user.username);
+    const possiblePaths = this.getPossiblePaths(targetOwner, repoName, user.username);
+
+    for (const fullPath of possiblePaths) {
+      try {
+        const encoded = encodeURIComponent(fullPath);
+        const res = await this.client.get(`/projects/${encoded}`);
+        if (res.status === 200) {
+          await this.client.delete(`/projects/${encoded}`);
+          console.log(`🗑️ [GitLab API] 프로젝트 삭제 요청 완료: ${fullPath}`);
+          return;
+        }
+      } catch {}
+    }
+
+    console.warn(`⚠️ [GitLab API] 삭제 대상 프로젝트를 찾을 수 없거나 이미 삭제되었습니다: ${targetPath}`);
+  }
 }
 
 registerProvider('gitlab', GitlabProvider);

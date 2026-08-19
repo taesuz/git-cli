@@ -197,6 +197,93 @@ export class GiteaProvider implements GitProvider {
       }
     }
   }
+
+  private async isRepoEmpty(targetOwner: string, repoName: string, repoData: any): Promise<boolean> {
+    if (typeof repoData.empty === 'boolean') {
+      return repoData.empty;
+    }
+    if (typeof repoData.size === 'number' && repoData.size === 0) {
+      return true;
+    }
+    try {
+      const branchesRes = await this.client.get(`/repos/${targetOwner}/${repoName}/branches`);
+      return Array.isArray(branchesRes.data) && branchesRes.data.length === 0;
+    } catch (err: any) {
+      if (err.response?.status === 404) {
+        return true;
+      }
+      return false;
+    }
+  }
+
+  async listRepositories(): Promise<import('../types.js').RepoInfo[]> {
+    const user = await this.getCurrentUser();
+    const isGroup = !!(this.group && this.group.trim() !== '');
+    const endpoint = isGroup
+      ? `/orgs/${encodeURIComponent(this.group!.trim())}/repos?limit=100`
+      : `/user/repos?limit=100`;
+
+    try {
+      const res = await this.client.get(endpoint);
+      const repoInfos: import('../types.js').RepoInfo[] = [];
+
+      for (const repo of res.data) {
+        const owner = repo.owner?.username || repo.owner?.login || user.username;
+        const isEmpty = await this.isRepoEmpty(owner, repo.name, repo);
+        repoInfos.push({
+          name: repo.name,
+          fullPath: repo.full_name,
+          cloneUrl: repo.html_url,
+          isEmpty,
+          defaultBranch: repo.default_branch,
+          size: repo.size,
+        });
+      }
+
+      return repoInfos;
+    } catch (err: any) {
+      throw new Error(`[Gitea API] 저장소 목록 조회 실패: ${err.response?.data?.message || err.message}`);
+    }
+  }
+
+  async checkRepositoryEmpty(targetPath: string): Promise<import('../types.js').RepoInfo> {
+    const user = await this.getCurrentUser();
+    const { targetOwner, repoName } = this.resolveOwnerAndRepo(targetPath, user.username);
+    const fullPath = `${targetOwner}/${repoName}`;
+
+    try {
+      const res = await this.client.get(`/repos/${targetOwner}/${repoName}`);
+      const repo = res.data;
+      const isEmpty = await this.isRepoEmpty(targetOwner, repoName, repo);
+      return {
+        name: repo.name,
+        fullPath: repo.full_name,
+        cloneUrl: repo.html_url,
+        isEmpty,
+        defaultBranch: repo.default_branch,
+        size: repo.size,
+      };
+    } catch (err: any) {
+      throw new Error(`[Gitea API] 저장소(${fullPath}) 정보 조회 실패: ${err.response?.data?.message || err.message}`);
+    }
+  }
+
+  async deleteRepo(targetPath: string): Promise<void> {
+    const user = await this.getCurrentUser();
+    const { targetOwner, repoName } = this.resolveOwnerAndRepo(targetPath, user.username);
+    const fullPath = `${targetOwner}/${repoName}`;
+
+    try {
+      await this.client.delete(`/repos/${targetOwner}/${repoName}`);
+      console.log(`🗑️ [Gitea API] 저장소 삭제 완료: ${fullPath}`);
+    } catch (err: any) {
+      if (err.response?.status === 404) {
+        console.warn(`⚠️ [Gitea API] 삭제 대상 저장소가 존재하지 않습니다: ${fullPath}`);
+      } else {
+        throw new Error(`[Gitea API] 저장소(${fullPath}) 삭제 실패: ${err.response?.data?.message || err.message}`);
+      }
+    }
+  }
 }
 
 registerProvider('gitea', GiteaProvider);
