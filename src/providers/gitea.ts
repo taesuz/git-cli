@@ -11,10 +11,10 @@ export class GiteaProvider implements GitProvider {
     envTokenKeys: ['GITEA_TOKEN', 'GIT_GITEA_TOKEN'],
   };
 
-  private client: AxiosInstance;
-  private token: string;
-  private host: string;
-  private group?: string;
+  protected client: AxiosInstance;
+  protected token: string;
+  protected host: string;
+  protected group?: string;
 
   constructor(config: ProviderConfig) {
     this.token = config.token;
@@ -36,11 +36,11 @@ export class GiteaProvider implements GitProvider {
       const res = await this.client.get('/user');
       return { username: res.data.username || res.data.login };
     } catch (err: any) {
-      throw new Error(`[Gitea] 사용자 정보 조회 실패: ${err.response?.data?.message || err.message}`);
+      throw new Error(`[${this.name}] 사용자 정보 조회 실패: ${err.response?.data?.message || err.message}`);
     }
   }
 
-  private resolveOwnerAndRepo(targetPath: string, username: string): { targetOwner: string; repoName: string } {
+  protected resolveOwnerAndRepo(targetPath: string, username: string): { targetOwner: string; repoName: string } {
     const parts = targetPath.split('/');
     if (parts.length > 1) {
       return { targetOwner: parts[0], repoName: parts[1] };
@@ -49,7 +49,7 @@ export class GiteaProvider implements GitProvider {
     return { targetOwner, repoName: parts[0] };
   }
 
-  private getSshUrl(fullPath: string): string {
+  protected getSshUrl(fullPath: string): string {
     try {
       const urlObj = new URL(this.host);
       return `git@${urlObj.hostname}:${fullPath}.git`;
@@ -86,7 +86,7 @@ export class GiteaProvider implements GitProvider {
       }
     } catch (err: any) {
       if (err.response?.status !== 404) {
-        throw new Error(`[Gitea] 저장소(${fullPath}) 조회 실패: ${err.response?.data?.message || err.message}`);
+        throw new Error(`[${this.name}] 저장소(${fullPath}) 조회 실패: ${err.response?.data?.message || err.message}`);
       }
     }
 
@@ -98,7 +98,7 @@ export class GiteaProvider implements GitProvider {
           name: repoName,
           private: true, // 기본 Private 설정
         });
-        console.log(`[Gitea API] 사용자 개인 Private 저장소 생성 완료: ${fullPath}`);
+        console.log(`[${this.name} API] 사용자 개인 Private 저장소 생성 완료: ${fullPath}`);
         return {
           cloneUrl,
           authenticatedCloneUrl,
@@ -110,7 +110,7 @@ export class GiteaProvider implements GitProvider {
           id: createRes.data.id,
         };
       } catch (err: any) {
-        throw new Error(`[Gitea API] 저장소 생성 실패: ${err.response?.data?.message || err.message}`);
+        throw new Error(`[${this.name} API] 저장소 생성 실패: ${err.response?.data?.message || err.message}`);
       }
     } else {
       try {
@@ -122,9 +122,9 @@ export class GiteaProvider implements GitProvider {
               username: targetOwner,
               visibility: 'private',
             });
-            console.log(`[Gitea API] 조직 생성 완료: ${targetOwner}`);
+            console.log(`[${this.name} API] 조직 생성 완료: ${targetOwner}`);
           } catch (orgErr: any) {
-            console.warn(`[Gitea API] 조직 생성 경고: ${orgErr.response?.data?.message || orgErr.message}`);
+            console.warn(`[${this.name} API] 조직 생성 경고: ${orgErr.response?.data?.message || orgErr.message}`);
           }
         }
       }
@@ -134,7 +134,7 @@ export class GiteaProvider implements GitProvider {
           name: repoName,
           private: true, // 기본 Private 설정
         });
-        console.log(`[Gitea API] 조직 Private 저장소 생성 완료: ${fullPath}`);
+        console.log(`[${this.name} API] 조직 Private 저장소 생성 완료: ${fullPath}`);
         return {
           cloneUrl,
           authenticatedCloneUrl,
@@ -146,7 +146,7 @@ export class GiteaProvider implements GitProvider {
           id: createRes.data.id,
         };
       } catch (err: any) {
-        throw new Error(`[Gitea API] 조직 저장소 생성 실패: ${err.response?.data?.message || err.message}`);
+        throw new Error(`[${this.name} API] 조직 저장소 생성 실패: ${err.response?.data?.message || err.message}`);
       }
     }
   }
@@ -179,7 +179,7 @@ export class GiteaProvider implements GitProvider {
       }
     } catch (err: any) {
       if (err.response?.status !== 404) {
-        throw new Error(`[Gitea] 저장소(${fullPath}) 조회 실패: ${err.response?.data?.message || err.message}`);
+        throw new Error(`[${this.name}] 저장소(${fullPath}) 조회 실패: ${err.response?.data?.message || err.message}`);
       }
     }
 
@@ -199,16 +199,16 @@ export class GiteaProvider implements GitProvider {
     const { targetOwner, repoName } = this.resolveOwnerAndRepo(targetPath, user.username);
     const fullPath = `${targetOwner}/${repoName}`;
 
-    console.log(`[Gitea API] Main 저장소(${fullPath})에 Push Mirror 등록 중 -> ${mirrorCloneUrl}`);
+    console.log(`[${this.name} API] Main 저장소(${fullPath})에 Push Mirror 등록 중 -> ${mirrorCloneUrl}`);
 
     try {
       await this.client.post(`/repos/${targetOwner}/${repoName}/push_mirrors`, {
         remote_address: mirrorCloneUrl,
         sync_on_commit: true,
       });
-      console.log(`[Gitea API] Push Mirror 등록 성공!`);
+      console.log(`[${this.name} API] Push Mirror 등록 성공!`);
     } catch (err: any) {
-      console.warn(`[Gitea API] Push Mirror 등록 경고: ${err.response?.data?.message || err.message}`);
+      console.warn(`[${this.name} API] Push Mirror 등록 경고: ${err.response?.data?.message || err.message}`);
     }
   }
 
@@ -229,7 +229,7 @@ export class GiteaProvider implements GitProvider {
       if (err.response?.status === 404) {
         return [];
       }
-      throw new Error(`[Gitea API] Push Mirror 목록 조회 실패 (${fullPath}): ${err.response?.data?.message || err.message}`);
+      throw new Error(`[${this.name} API] Push Mirror 목록 조회 실패 (${fullPath}): ${err.response?.data?.message || err.message}`);
     }
   }
 
@@ -247,22 +247,22 @@ export class GiteaProvider implements GitProvider {
         service: 'git',
         private: true, // 기본 Private 설정
       });
-      console.log(`[Gitea API] Pull Mirror 등록 성공: ${fullPath}`);
+      console.log(`[${this.name} API] Pull Mirror 등록 성공: ${fullPath}`);
     } catch (err: any) {
       if (err.response?.status === 409 || JSON.stringify(err.response?.data).includes('already exists')) {
         try {
           await this.client.post(`/repos/${targetOwner}/${repoName}/mirror-sync`);
-          console.log(`[Gitea API] 기존 저장소 Mirror Sync 트리거 완료: ${fullPath}`);
+          console.log(`[${this.name} API] 기존 저장소 Mirror Sync 트리거 완료: ${fullPath}`);
         } catch (syncErr: any) {
-          console.warn(`[Gitea API] Mirror Sync 트리거 경고: ${syncErr.message}`);
+          console.warn(`[${this.name} API] Mirror Sync 트리거 경고: ${syncErr.message}`);
         }
       } else {
-        throw new Error(`[Gitea API] Pull Mirror 등록 실패: ${err.response?.data?.message || err.message}`);
+        throw new Error(`[${this.name} API] Pull Mirror 등록 실패: ${err.response?.data?.message || err.message}`);
       }
     }
   }
 
-  private async isRepoEmpty(targetOwner: string, repoName: string, repoData: any): Promise<boolean> {
+  protected async isRepoEmpty(targetOwner: string, repoName: string, repoData: any): Promise<boolean> {
     if (typeof repoData.empty === 'boolean') {
       return repoData.empty;
     }
@@ -306,7 +306,7 @@ export class GiteaProvider implements GitProvider {
 
       return repoInfos;
     } catch (err: any) {
-      throw new Error(`[Gitea API] 저장소 목록 조회 실패: ${err.response?.data?.message || err.message}`);
+      throw new Error(`[${this.name} API] 저장소 목록 조회 실패: ${err.response?.data?.message || err.message}`);
     }
   }
 
@@ -328,7 +328,7 @@ export class GiteaProvider implements GitProvider {
         size: repo.size,
       };
     } catch (err: any) {
-      throw new Error(`[Gitea API] 저장소(${fullPath}) 정보 조회 실패: ${err.response?.data?.message || err.message}`);
+      throw new Error(`[${this.name} API] 저장소(${fullPath}) 정보 조회 실패: ${err.response?.data?.message || err.message}`);
     }
   }
 
@@ -339,12 +339,12 @@ export class GiteaProvider implements GitProvider {
 
     try {
       await this.client.delete(`/repos/${targetOwner}/${repoName}`);
-      console.log(`🗑️ [Gitea API] 저장소 삭제 완료: ${fullPath}`);
+      console.log(`🗑️ [${this.name} API] 저장소 삭제 완료: ${fullPath}`);
     } catch (err: any) {
       if (err.response?.status === 404) {
-        console.warn(`⚠️ [Gitea API] 삭제 대상 저장소가 존재하지 않습니다: ${fullPath}`);
+        console.warn(`⚠️ [${this.name} API] 삭제 대상 저장소가 존재하지 않습니다: ${fullPath}`);
       } else {
-        throw new Error(`[Gitea API] 저장소(${fullPath}) 삭제 실패: ${err.response?.data?.message || err.message}`);
+        throw new Error(`[${this.name} API] 저장소(${fullPath}) 삭제 실패: ${err.response?.data?.message || err.message}`);
       }
     }
   }

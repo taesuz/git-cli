@@ -103,7 +103,7 @@ function resolveProviderToken(pConfig: ProviderConfig, label: string): void {
 }
 
 function isDummyToken(token: string): boolean {
-  const dummyValues = ['asdfasdfasdf', 'your_token', 'your_github_token', 'your_gitlab_token', 'your_gitea_token', 'xxxx'];
+  const dummyValues = ['asdfasdfasdf', 'your_token', 'your_github_token', 'your_gitlab_token', 'your_gitea_token', 'your_forgejo_token', 'xxxx'];
   return dummyValues.includes(token.trim().toLowerCase());
 }
 

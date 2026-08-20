@@ -1,5 +1,5 @@
 export interface ProviderConfig {
-  provider: 'github' | 'gitlab' | 'gitea' | string;
+  provider: 'github' | 'gitlab' | 'gitea' | 'forgejo' | string;
   token: string;
   host?: string;
   group?: string;
