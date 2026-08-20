@@ -201,6 +201,56 @@ export class GitlabProvider implements GitProvider {
     }
   }
 
+  async checkRepoExists(targetPath: string): Promise<EnsureRepoResult> {
+    const user = await this.getCurrentUser();
+    const { targetOwner, repoName } = this.resolveOwnerAndRepo(targetPath, user.username);
+    const possiblePaths = this.getPossiblePaths(targetOwner, repoName, user.username);
+
+    for (const fullPath of possiblePaths) {
+      try {
+        const encoded = encodeURIComponent(fullPath);
+        const res = await this.client.get(`/projects/${encoded}`);
+        if (res.status === 200) {
+          const cloneUrl = `${this.host}/${fullPath}.git`;
+          const authenticatedCloneUrl = `${this.host.replace(
+            /^https?:\/\//,
+            `https://oauth2:${this.token}@`
+          )}/${fullPath}.git`;
+          const sshUrl = this.getSshUrl(fullPath);
+
+          return {
+            cloneUrl,
+            authenticatedCloneUrl,
+            sshUrl,
+            exists: true,
+            owner: targetOwner,
+            repoName,
+            fullPath,
+            id: res.data.id,
+          };
+        }
+      } catch {}
+    }
+
+    const defaultFullPath = possiblePaths[0];
+    const cloneUrl = `${this.host}/${defaultFullPath}.git`;
+    const authenticatedCloneUrl = `${this.host.replace(
+      /^https?:\/\//,
+      `https://oauth2:${this.token}@`
+    )}/${defaultFullPath}.git`;
+    const sshUrl = this.getSshUrl(defaultFullPath);
+
+    return {
+      cloneUrl,
+      authenticatedCloneUrl,
+      sshUrl,
+      exists: false,
+      owner: targetOwner,
+      repoName,
+      fullPath: defaultFullPath,
+    };
+  }
+
   async addPushMirror(targetPath: string, mirrorCloneUrl: string): Promise<void> {
     const user = await this.getCurrentUser();
     const { targetOwner, repoName } = this.resolveOwnerAndRepo(targetPath, user.username);
@@ -234,6 +284,38 @@ export class GitlabProvider implements GitProvider {
       } else {
         throw new Error(`[GitLab API] Push Mirror 등록 실패: ${err.response?.data?.message || JSON.stringify(err.response?.data) || err.message}`);
       }
+    }
+  }
+
+  async getPushMirrors(targetPath: string): Promise<string[]> {
+    const user = await this.getCurrentUser();
+    const { targetOwner, repoName } = this.resolveOwnerAndRepo(targetPath, user.username);
+    const possiblePaths = this.getPossiblePaths(targetOwner, repoName, user.username);
+
+    let activeFullPath = possiblePaths[0];
+    for (const p of possiblePaths) {
+      try {
+        const res = await this.client.get(`/projects/${encodeURIComponent(p)}`);
+        if (res.status === 200) {
+          activeFullPath = p;
+          break;
+        }
+      } catch {}
+    }
+
+    const encodedFullPath = encodeURIComponent(activeFullPath);
+
+    try {
+      const res = await this.client.get(`/projects/${encodedFullPath}/remote_mirrors`);
+      if (Array.isArray(res.data)) {
+        return res.data.map((m: any) => m.url).filter((url: any) => typeof url === 'string');
+      }
+      return [];
+    } catch (err: any) {
+      if (err.response?.status === 404) {
+        return [];
+      }
+      throw new Error(`[GitLab API] Push Mirror 목록 조회 실패: ${err.response?.data?.message || err.message}`);
     }
   }
 

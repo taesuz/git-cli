@@ -139,6 +139,49 @@ export class GithubProvider implements GitProvider {
     }
   }
 
+  async checkRepoExists(targetPath: string): Promise<EnsureRepoResult> {
+    const user = await this.getCurrentUser();
+    const { targetOwner, repoName } = this.resolveOwnerAndRepo(targetPath, user.username);
+
+    const fullPath = `${targetOwner}/${repoName}`;
+    const cloneUrl = `${this.host.replace(/\/$/, '')}/${fullPath}.git`;
+    const authenticatedCloneUrl = `${this.host.replace(
+      /^https?:\/\//,
+      `https://x-access-token:${this.token}@`
+    )}/${fullPath}.git`;
+    const sshUrl = this.getSshUrl(fullPath);
+
+    try {
+      const res = await this.client.get(`/repos/${targetOwner}/${repoName}`);
+      if (res.status === 200) {
+        return {
+          cloneUrl,
+          authenticatedCloneUrl,
+          sshUrl,
+          exists: true,
+          owner: targetOwner,
+          repoName,
+          fullPath,
+          id: res.data.id,
+        };
+      }
+    } catch (err: any) {
+      if (err.response?.status !== 404) {
+        throw new Error(`[GitHub] 저장소(${fullPath}) 조회 실패: ${err.response?.data?.message || err.message}`);
+      }
+    }
+
+    return {
+      cloneUrl,
+      authenticatedCloneUrl,
+      sshUrl,
+      exists: false,
+      owner: targetOwner,
+      repoName,
+      fullPath,
+    };
+  }
+
   async addPushMirror(_targetPath: string, _mirrorCloneUrl: string): Promise<void> {
     console.warn(`[GitHub API] GitHub은 REST API를 통한 Push Mirror 등록을 지원하지 않으므로 건너뜁니다.`);
   }

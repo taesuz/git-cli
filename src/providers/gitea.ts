@@ -151,6 +151,49 @@ export class GiteaProvider implements GitProvider {
     }
   }
 
+  async checkRepoExists(targetPath: string): Promise<EnsureRepoResult> {
+    const user = await this.getCurrentUser();
+    const { targetOwner, repoName } = this.resolveOwnerAndRepo(targetPath, user.username);
+
+    const fullPath = `${targetOwner}/${repoName}`;
+    const cloneUrl = `${this.host}/${fullPath}.git`;
+    const authenticatedCloneUrl = `${this.host.replace(
+      /^https?:\/\//,
+      `https://${user.username}:${this.token}@`
+    )}/${fullPath}.git`;
+    const sshUrl = this.getSshUrl(fullPath);
+
+    try {
+      const res = await this.client.get(`/repos/${targetOwner}/${repoName}`);
+      if (res.status === 200) {
+        return {
+          cloneUrl,
+          authenticatedCloneUrl,
+          sshUrl,
+          exists: true,
+          owner: targetOwner,
+          repoName,
+          fullPath,
+          id: res.data.id,
+        };
+      }
+    } catch (err: any) {
+      if (err.response?.status !== 404) {
+        throw new Error(`[Gitea] 저장소(${fullPath}) 조회 실패: ${err.response?.data?.message || err.message}`);
+      }
+    }
+
+    return {
+      cloneUrl,
+      authenticatedCloneUrl,
+      sshUrl,
+      exists: false,
+      owner: targetOwner,
+      repoName,
+      fullPath,
+    };
+  }
+
   async addPushMirror(targetPath: string, mirrorCloneUrl: string): Promise<void> {
     const user = await this.getCurrentUser();
     const { targetOwner, repoName } = this.resolveOwnerAndRepo(targetPath, user.username);
@@ -166,6 +209,27 @@ export class GiteaProvider implements GitProvider {
       console.log(`[Gitea API] Push Mirror 등록 성공!`);
     } catch (err: any) {
       console.warn(`[Gitea API] Push Mirror 등록 경고: ${err.response?.data?.message || err.message}`);
+    }
+  }
+
+  async getPushMirrors(targetPath: string): Promise<string[]> {
+    const user = await this.getCurrentUser();
+    const { targetOwner, repoName } = this.resolveOwnerAndRepo(targetPath, user.username);
+    const fullPath = `${targetOwner}/${repoName}`;
+
+    try {
+      const res = await this.client.get(`/repos/${targetOwner}/${repoName}/push_mirrors`);
+      if (Array.isArray(res.data)) {
+        return res.data
+          .map((m: any) => m.remote_address)
+          .filter((addr: any) => typeof addr === 'string');
+      }
+      return [];
+    } catch (err: any) {
+      if (err.response?.status === 404) {
+        return [];
+      }
+      throw new Error(`[Gitea API] Push Mirror 목록 조회 실패 (${fullPath}): ${err.response?.data?.message || err.message}`);
     }
   }
 

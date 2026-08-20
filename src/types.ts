@@ -60,8 +60,10 @@ export interface GitProvider {
   capabilities: GitProviderCapabilities;
   getCurrentUser(): Promise<{ username: string; id?: number }>;
   ensureRepo(targetPath: string): Promise<EnsureRepoResult>;
+  checkRepoExists?(targetPath: string): Promise<EnsureRepoResult | null>;
   addPushMirror?(targetPath: string, mirrorCloneUrl: string): Promise<void>;
   addPullMirror?(targetPath: string, mainCloneUrl: string): Promise<void>;
+  getPushMirrors?(targetPath: string): Promise<string[]>;
   listRepositories?(): Promise<RepoInfo[]>;
   checkRepositoryEmpty?(targetPath: string): Promise<RepoInfo>;
   deleteRepo?(targetPath: string): Promise<void>;

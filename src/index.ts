@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 
-import fs from 'fs';
-import path from 'path';
 import { Command } from 'commander';
 import { ensureConfigFile, CONFIG_FILE, loadConfig, validateConfig } from './config/index.js';
 import { syncRepository } from './services/sync.js';
+import { checkAndRegisterPushMirror } from './services/mirror.js';
+import { checkUnmirroredRepositories } from './services/checkMirror.js';
 import { selectChoice } from './utils/prompt.js';
+import { detectProjectName } from './utils/project.js';
 
 const program = new Command();
 
@@ -26,6 +27,20 @@ program
   .description('지정한 저장소를 Main에서 읽어 Mirror 플랫폼들에 레포 생성/동기화합니다. (인자 생략 시 현재 폴더 이름/package.json 기준 자동 감지)')
   .action(async (repository?: string) => {
     await runSyncCommand(repository);
+  });
+
+program
+  .command('mirror [repository]')
+  .description('Main 저장소에 리포지토리 푸시 미러링(Push Mirror) 등록 여부를 확인하고 필요 시 등록합니다.')
+  .action(async (repository?: string) => {
+    await runMirrorCommand(repository);
+  });
+
+program
+  .command('check-mirror [repository]')
+  .description('미러(Push/Pull Mirror)가 등록되지 않은 저장소 목록을 탐색하여 표시합니다.')
+  .action(async (repository?: string) => {
+    await runCheckMirrorCommand(repository);
   });
 
 program
@@ -68,6 +83,24 @@ async function runSyncCommand(repository?: string) {
   }
 }
 
+async function runMirrorCommand(repository?: string) {
+  try {
+    await checkAndRegisterPushMirror(repository);
+  } catch (err: any) {
+    console.error(`\n❌ [git-cli 오류] ${err.message}\n`);
+    process.exit(1);
+  }
+}
+
+async function runCheckMirrorCommand(repository?: string) {
+  try {
+    await checkUnmirroredRepositories(repository);
+  } catch (err: any) {
+    console.error(`\n❌ [git-cli 오류] ${err.message}\n`);
+    process.exit(1);
+  }
+}
+
 async function runCheckEmptyCommand(repository?: string) {
   try {
     const { checkEmptyRepositories } = await import('./services/checkEmpty.js');
@@ -76,23 +109,6 @@ async function runCheckEmptyCommand(repository?: string) {
     console.error(`\n❌ [git-cli 오류] ${err.message}\n`);
     process.exit(1);
   }
-}
-
-function detectProjectName(): string {
-  const currentDir = process.cwd();
-  const packageJsonPath = path.join(currentDir, 'package.json');
-
-  if (fs.existsSync(packageJsonPath)) {
-    try {
-      const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
-      if (pkg.name && typeof pkg.name === 'string' && pkg.name.trim() !== '') {
-        const cleanName = pkg.name.replace(/^@[^/]+\//, '');
-        return cleanName;
-      }
-    } catch {}
-  }
-
-  return path.basename(currentDir);
 }
 
 async function main() {
@@ -104,6 +120,8 @@ async function main() {
 
     const actionIdx = await selectChoice('❓ 실행할 메인 기능을 선택해 주세요:', [
       '🔄  현재 디렉토리 저장소 생성 및 미러 동기화 설정 (sync)',
+      '🪞  리포지토리 푸시 미러링 확인 및 등록 (mirror)',
+      '🚨  미러 미등록 리포지토리 목록 검사 (check-mirror)',
       '🔍  비어있는 리포지토리 체크 및 동기화/삭제 (check-empty)',
       '⚙️  설정 파일 생성 및 유효성 검사 (init)',
       '🚫  종료',
@@ -112,8 +130,12 @@ async function main() {
     if (actionIdx === 0) {
       await runSyncCommand();
     } else if (actionIdx === 1) {
-      await runCheckEmptyCommand();
+      await runMirrorCommand();
     } else if (actionIdx === 2) {
+      await runCheckMirrorCommand();
+    } else if (actionIdx === 3) {
+      await runCheckEmptyCommand();
+    } else if (actionIdx === 4) {
       runInitCommand();
     } else {
       console.log('\nℹ️ 작업을 진행하지 않고 종료합니다.\n');
